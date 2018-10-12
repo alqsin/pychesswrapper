@@ -1,6 +1,6 @@
 import chessfuns
+from PieceHolder import PieceHolder
 
-valid_pieces = ['p', 'n', 'b', 'r', 'q', 'k']
 valid_castling = ['k', 'q']
 
 class ChessBoardError(Exception):
@@ -13,10 +13,8 @@ class ChessBoard:
         """Initialize an 8x8 chess board from a FEN string, or as the default
         starting position if no FEN is provided.
         """
-        # initialize board to 8x8 array of None
-        self.board = []
-        for _ in range(8):
-            self.board.append([None] * 8)
+        # initialize emtpy PieceHolder
+        self.pieces = PieceHolder()
 
         if fen is not None:
             self.initialize_from_fen(fen)
@@ -30,7 +28,7 @@ class ChessBoard:
         """Return an ascii representation of current position."""
         result = ('White to move\n' if self.white_to_move 
                   else 'Black to move\n')
-        for rank in reversed(self.board):
+        for rank in reversed(self.pieces.get_board_layout()):
             for piece in rank:
                 if piece is None:
                     result += '  '
@@ -38,14 +36,6 @@ class ChessBoard:
                     result += piece + ' '
             result += '\n'
         return result
-
-    def add_piece(self, piece, r = None, f = None, square = None):
-        """Adds piece (either by coordinates f and r, or by square) to self."""
-        if square is not None:
-            (r, f) = chessfuns.square_to_coords(square)
-        elif f is None or r is None:
-            raise ChessBoardError("Coordinates for piece not defined!")
-        self.board[r-1][f-1] = piece
 
     def initialize_from_fen(self, fen):
         """Takes a FEN string and initializes self to match it."""
@@ -61,15 +51,13 @@ class ChessBoard:
             f = 1
             for ch in rank:
                 if f > 8:
-                    raise ChessBoardError("Too many squares specified in FEN at"
-                                     " rank {}!".format(8 - r))
-                if ch.lower() in valid_pieces:
-                    self.add_piece(ch, r = 8 - r, f = f)
-                    f += 1
-                elif chessfuns.is_chess_int(ch):
+                    raise ChessBoardError("Too many squares specified in FEN"
+                                     " at rank {}!".format(8 - r))
+                if chessfuns.is_chess_int(ch):
                     f += int(ch)
                 else:
-                    raise ChessBoardError("Invalid FEN character found!")
+                    self.pieces.add_piece(ch, r = 8 - r, f = f)
+                    f += 1
 
         # interpret active colour
         if fen_fields[1] == 'w':
@@ -80,12 +68,17 @@ class ChessBoard:
             raise ChessBoardError("Active colour is invalid!")
         
         # interpret castling
-        self.can_castle = []
+        self.can_castle = {
+            'K': False,
+            'Q': False,
+            'k': False,
+            'q': False,
+        }
         if fen_fields[2] != '-':
             for castling in fen_fields[2]:
                 if not castling.lower() in valid_castling:
                     raise ChessBoardError("Castling is invalid!")
-                self.can_castle.append(castling)
+                self.can_castle[castling] = True
 
         # interpret en passant
         if not fen_fields[3] == '-' and \
@@ -103,13 +96,65 @@ class ChessBoard:
             raise ChessBoardError("Move number is not valid!")
         self.move_number = int(fen_fields[5])
 
-    def play_move(self, move):
-        return
+    def play_move(self, piece, square, is_capture):
+        """Plays piece to square. Uses turn status to determine which
+        color to move.
+        """
+        # record numeric coordinates
+        (r, f) = chessfuns.square_to_coords(square)
+
+        if self.white_to_move:
+            piece = piece.upper()
+        else:
+            piece = piece.lower()
+
+        # move piece and record square moved from
+        from_square = self.pieces.move_piece(piece, square)
+
+        # adjust castling privileges
+        if piece == 'k':
+            self.can_castle['k'] = self.can_castle['q'] = False
+        elif piece == 'K':
+            self.can_castle['K'] = self.can_castle['Q'] = False
+        elif piece == 'r':
+            if from_square == 'a8':
+                self.can_castle['q'] = False
+            elif from_square == 'h8':
+                self.can_castle['k'] = False
+        elif piece == 'R':
+            if from_square == 'a1':
+                self.can_castle['Q'] = False
+            elif from_square == 'h1':
+                self.can_castle['K'] = False
+
+        # adjust en passant square
+        if piece == 'P':
+            if r == 4 and from_square.r == 2:
+                self.en_passant = chessfuns.coords_to_square(3, f)
+        elif piece == 'p':
+            if r == 5 and from_square.r == 7:
+                self.en_passant = chessfuns.coords_to_square(6, f)
+        else:
+            self.en_passant = '-'
+
+        # adjust halfmove clock
+        if is_capture or piece.lower() == 'p':
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock += 1
+
+        # adjust move number
+        if not self.white_to_move:
+            self.move_number += 1
+
+        # adjust turn
+        self.white_to_move = not self.white_to_move
+
 
     def export_fen(self):
         """Returns current board (and metadata) as FEN string."""
         fen = ''
-        for rank in reversed(self.board):
+        for rank in reversed(self.pieces.get_board_layout()):
             if len(fen) > 0:
                 fen += '/'
             empty_squares = 0

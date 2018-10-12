@@ -52,3 +52,50 @@ def square_to_coords(square):
         int(square[1]),
         ord(square[0]) - ord('a') + 1
     )
+
+def coords_to_square(r, f):
+    """Returns the square corresponding to coordinates (r, f)"""
+    if not is_chess_int(r) or not is_chess_int(f):
+        raise ChessFnError("Invalid coordinates specified!")
+    return chr(ord('a') + f - 1) + str(r)
+
+def piece_can_move(piece, r1, f1, r2, f2, is_capture):
+    """Checks if a piece can move from (r1, f1) to (r2, f2). Only considers
+    piece type, does not consider whether or not square is reachable.
+    """
+    fdiff = abs(f1 - f2)
+    if piece.lower() == 'p':
+        dir = -1 if piece == 'p' else 1
+        if is_capture:
+            if r2 - r1 == dir and fdiff == 1:
+                return True
+        elif fdiff == 0:
+            if r2 - r1 == dir:
+                return True
+            if dir == 1:
+                if r1 == 2 and r2 == 4:
+                    return True
+            else:
+                if r1 == 7 and r2 == 5:
+                    return True
+        return False
+    rdiff = abs(r1 - r2)
+    if piece.lower() == 'k':
+        if rdiff <= 1 and fdiff <= 1:
+            return True
+        return False
+    if piece.lower() == 'q':
+        if rdiff == 0 or fdiff == 0:
+            return True
+        if rdiff == fdiff:
+            return True
+        return False
+    if piece.lower() == 'n':
+        if rdiff == 2 and fdiff == 1:
+            return True
+        if rdiff == 1 and fdiff == 2:
+            return True
+        return False
+    if piece.lower() == 'r':
+        if rdiff == 0 or fdiff == 0:
+            return True
