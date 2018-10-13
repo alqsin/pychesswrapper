@@ -90,6 +90,9 @@ def piece_can_move(piece, r1, f1, r2, f2, is_capture):
         if rdiff == fdiff:
             return True
         return False
+    if piece.lower() == 'b':
+        if rdiff == fdiff:
+            return True
     if piece.lower() == 'n':
         if rdiff == 2 and fdiff == 1:
             return True
@@ -99,3 +102,4 @@ def piece_can_move(piece, r1, f1, r2, f2, is_capture):
     if piece.lower() == 'r':
         if rdiff == 0 or fdiff == 0:
             return True
+    return False

@@ -169,7 +169,8 @@ class ChessBoard:
             if empty_squares > 0:
                 fen += str(empty_squares)
         fen += (' w' if self.white_to_move else ' b')
-        fen += ' ' + ''.join(self.can_castle)
+        fen += ' ' + ''.join([castling for castling in self.can_castle 
+                              if self.can_castle[castling]])
         fen += ' ' + self.en_passant
         fen += ' ' + str(self.halfmove_clock)
         fen += ' ' + str(self.move_number)
